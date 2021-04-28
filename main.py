@@ -19,6 +19,9 @@ Nick = {
     "above": ""
 }
 
+@app.route("/", methods=["GET"])
+def home():
+    return {"hello": "world")
 @app.route("/api/get", methods=["GET"])
 def prase():
     global data
