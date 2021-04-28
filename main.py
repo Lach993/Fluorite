@@ -1,6 +1,4 @@
-from flask import Flask, request, redirect
-from data import data
-import fastapi
+from flask import Flask, request
 import copy
 import json
 import requests
