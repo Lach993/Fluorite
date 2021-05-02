@@ -119,7 +119,7 @@ def get_uuid(uuid):
     except:
         return None
 def get_player(uuid):
-    key = "03ad10e3-ce0a-4490-9f38-c5d7546ac246"
+    key = "SECRET"
     return requests.get(f"https://api.hypixel.net/player?key={key}&uuid={uuid}").text
 
 @app.route("/api/admin/reset", methods=["GET"])
