@@ -3,8 +3,7 @@ import sqlite3
 import json
 import aiohttp
 import asyncio
-import requests
-
+import os
 app = Flask(__name__)
 
 con = sqlite3.connect('main.db')
@@ -16,12 +15,23 @@ cur.execute('''DROP TABLE names''')
 cur.execute('''CREATE TABLE names
                (uuid text, name text)''')
 con.commit()
+
+
 Nick = {
     "prefix": "NICKED",
     "suffix": "Bad",
     "tab": "NICKED",
     "above": "Lol, imagine not being Nicked"
    }
+playingFluorite = []
+@app.route("/api/player", methods=["POST"])
+def player():
+    name = request.args.get('name', type=str).strip()
+    
+    if name:
+        name = get_uuids_from_names([name])[0]
+        playingFluorite.append[name]
+    return
 
 @app.route("/api/get", methods=["GET"])
 def group():
@@ -107,10 +117,10 @@ def parse_player_data(user:str, uuid):
     elif finalDeaths == 0: fkdr = "inf%"
     else: fkdr = f"{round(finalKills/finalDeaths*100, 2)}%"
     
-    if uuid.strip() in ["f1c3965e278f457c8e05c41852eb8314", "443baadc5349495aa735a7d31c684042"]: #_LACH, jh1236
-        prefix = "Fluorite"
-    elif uuid.strip() in ["568f0a95813e4767b75bc601b693bb39"]: # Dolorrev
+    if uuid.strip() in ["568f0a95813e4767b75bc601b693bb39"]: # Dolorrev
         prefix = "Fireball King"
+    elif uuid.strip() in playingFluorite:
+        prefix = "Fluorite"
     else:
         prefix = "Pleb"
 
@@ -142,7 +152,7 @@ async def fetch_all_names(names):
         return responses
 
 async def fetch_all_players(uuids):
-    key = "03ad10e3-ce0a-4490-9f38-c5d7546ac246"
+    key = os.environ.get("hypixel_token")
     
     async with aiohttp.ClientSession() as session:
         tasks = []
