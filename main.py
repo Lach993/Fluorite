@@ -1,174 +1,112 @@
-from flask import Flask, request
-import sqlite3
-import json
-import aiohttp
+from quart import Quart, request, send_file
 import asyncio
+import io
+from modules.get_uuids_from_names import get_uuids_from_names, get_uuid_from_name
+from modules.get_players_from_uuids import get_players_from_uuids
+from modules.countlines import countlines
+import lightbulb
 import os
-app = Flask(__name__)
+# import sys
+import modules.sqlmanager as sqlmanager
+# import io
+# stdout = io.StringIO()
+# sys.stdout = stdout
+loop = asyncio.get_event_loop()
+asyncio.set_event_loop(loop)
 
-con = sqlite3.connect('main.db')
-cur = con.cursor()
-cur.execute('''DROP TABLE users''')
-cur.execute('''CREATE TABLE users
-               (uuid text, prefix text, suffix text, tab text, above text)''')
-cur.execute('''DROP TABLE names''')
-cur.execute('''CREATE TABLE names
-               (uuid text, name text)''')
-con.commit()
+print(countlines("C:\\Users\\dell\\Desktop\\AFluorite\\"))
 
+bot = lightbulb.Bot(
+    token=os.environ.get("Discord"),
+    insensitive_commands=True,
+    prefix="F."
+    )
 
-Nick = {
-    "prefix": "NICKED",
-    "suffix": "Bad",
-    "tab": "NICKED",
-    "above": "Lol, imagine not being Nicked"
-   }
-playingFluorite = []
-@app.route("/api/player", methods=["POST"])
-def player():
-    name = request.args.get('name', type=str).strip()
-    
-    if name:
-        name = get_uuids_from_names([name])[0]
-        playingFluorite.append[name]
-    return
+# set up sql manager
+loop.run_until_complete(sqlmanager.init())
 
-@app.route("/api/get", methods=["GET"])
-def group():
+sqlcapes = sqlmanager.cape()
+sqlcosmetics = sqlmanager.cosmetics()
+sqlstone = sqlmanager.stone()
+
+app = Quart(__name__)
+
+@app.route("/api/bedwars/get", methods=["GET"])
+async def bedwars_get():
     names = request.args.get('names', type=str).split(",")
-    uuids = get_uuids_from_names(names)
-    players = get_players_from_uuids(uuids)
+    uuids = await get_uuids_from_names(names)
+    players = await get_players_from_uuids(uuids)
     print(names, uuids, players)
     ret = {}
     for name, uuid in uuids.items():
         ret[name] = players[uuid]
     return ret
 
-def get_uuids_from_names(names: list) -> dict:
-    unkown = []
-    known = {}
-    con = sqlite3.connect('main.db')
-    cur = con.cursor()
-    for name in names:
-        cur.execute("select uuid from names where name == ?", (name,))
-        uuid = cur.fetchone()
-        if not uuid:
-            unkown.append(name)
-        else:
-            known[name] = uuid[0]
-    if len(unkown) > 0:
-        ret = asyncio.run(fetch_all_names(unkown))
-        for j in ret:
-            name = j[0]
-            uuid = j[1]["id"]
-            print(uuid)
-            known[name] = uuid
-            cur.execute("INSERT INTO names (name, uuid) VALUES (?, ?) ", (name, uuid))
-        con.commit()
 
-    return known
-
-def get_players_from_uuids(uuids: list):
-    unkown = []
-    known = {}
-    con = sqlite3.connect('main.db')
-    cur = con.cursor()
-    for uuid in uuids.values():
-        cur.execute("Select prefix, suffix, above, tab from users where uuid == ?", (uuid,))
-        user = cur.fetchone()
-        if not user:
-            unkown.append(uuid)
-        else:
-            print(user)
-            known[uuid] = {
-                "prefix": user[0], 
-                "suffix": user[1], 
-                "above": user[2], 
-                "tab": user[3]}
-            print(f"fetched {uuid} from db")
-    if len(unkown) > 0:
-        ret = asyncio.run(fetch_all_players(unkown))
-        for j in ret:
-            print(unkown)
-            fin = parse_player_data(j[1], j[0])
-            
-            known[j[0]] = fin
-            print(fin)
-            cur.execute("INSERT INTO users (uuid, prefix, suffix, above, tab) VALUES (?, ?, ?, ?, ?) ", 
-                         (j[0], fin["prefix"], fin["suffix"], fin["above"], fin["tab"]))
-        con.commit()
-
-    return known
-
-def parse_player_data(user:str, uuid):
-    global Nick
-    if user['success'] == False:
-        return json.dumps(Nick)
-    if user['player'] == None: 
-        return json.dumps(Nick)
-    stats = user['player']['stats']
-    bedwars = stats['Bedwars'] if 'Bedwars' in stats else dict()
-    star = user['player']['achievements']['bedwars_level'] if 'bedwars_level' in user['player']['achievements'] else 0
-    finalDeaths = bedwars["final_deaths_bedwars"] if  'final_deaths_bedwars' in bedwars else 0
-    finalKills = bedwars["final_kills_bedwars"] if 'final_kills_bedwars' in bedwars else 0
-    version = user['player']['mcVersionRp'] if 'mcVersionRp' in user['player'] else "Unknown"
-
-    if finalKills == 0: fkdr = "0%"
-    elif finalDeaths == 0: fkdr = "inf%"
-    else: fkdr = f"{round(finalKills/finalDeaths*100, 2)}%"
+@app.route("/api/capes/get", methods=["GET"])
+async def cape_get():
+    name = request.args.get('name', type=str)
+    uuid = await get_uuid_from_name(name)
     
-    if uuid.strip() in ["568f0a95813e4767b75bc601b693bb39"]: # Dolorrev
-        prefix = "Fireball King"
-    elif uuid.strip() in playingFluorite:
-        prefix = "Fluorite"
+    print(uuid)
+    uuid = uuid[0]
+    print(uuid)
+    if await sqlcapes.check(uuid):
+        cape = await sqlcapes.fetchlatest(uuid)
     else:
-        prefix = "Pleb"
+        return None
+    return await send_file(
+        io.BytesIO(cape[0]),
+            mimetype='image/png',
+            as_attachment=False,
+            attachment_filename='cape.png')
 
-    return {
-        "prefix": prefix,
-        "suffix": "<3",
-        "tab": "FKDR {} - {}☆ - {}".format(fkdr, str(star), version),
-        "above": "Bedwars Star {}".format(str(star))
-        }
+@app.route("/api/cosmetics/get", methods=["GET"])
+async def cosmetics_get():
+    names = request.args.get('names', type=str).split(",")
+    uuids = await get_uuids_from_names(names)
+    ret = {}
+    for name, uuid in uuids.items():
+        if await sqlcosmetics.check(uuid):
+            wings, tophat = await sqlcosmetics.fetchlatest(uuid)
+            ret[name] = {"wings": bool(wings), "tophat": bool(tophat)}
+        else:
+            ret[name] = {"wings": False, "tophat": False}
+    return ret
 
-async def fetch(session, url, relation = None):
-    async with session.get(url) as response:
-        resp = await response.json()
-        return [relation, resp]
+@app.route("/api/cosmetics/put", methods=["GET", "PUT"])
+async def cosmetics_put():
+    name = request.args.get('name', type=str)
+    tophat = request.args.get('tophat', type=int, default=0)
+    wings = request.args.get('wings', type=int, default=0)
+    uuid = await get_uuid_from_name(name)
+    await sqlcosmetics.insert(uuid=uuid, tophat=int(tophat), wings=int(wings))
+    return ""
 
-async def fetch_all_names(names):
-    async with aiohttp.ClientSession() as session:
-        tasks = []
-        for name in names:
-            tasks.append(
-                fetch(
-                    session,
-                    f"https://api.mojang.com/users/profiles/minecraft/{name}",
-                    name
+@app.route("/api/stone/put", methods=["PUT", "GET"])
+async def stone_put():
+    name = request.args.get("name", type=str)
+    num = request.args.get("num", type=int, default=0)
+    uuid = await get_uuid_from_name(name)
+    await sqlstone.insert(uuid=uuid, num=num)
+    return ""
 
-                )
-            )
-        responses = await asyncio.gather(*tasks, return_exceptions=True)
-        return responses
+@app.route("/api/stone/get", methods=["GET"])
+async def stone_get():
+    name = request.args.get("name", type=str)
+    uuid = await get_uuid_from_name(name)
+    return str(await sqlstone.countall(uuid=uuid))
 
-async def fetch_all_players(uuids):
-    key = os.environ.get("hypixel_token")
-    
-    async with aiohttp.ClientSession() as session:
-        tasks = []
-        for uuid in uuids:
-            tasks.append(
-                fetch(
-                    session,
-                    f"https://api.hypixel.net/player?key={key}&uuid={uuid}",
-                    uuid
-                )
-            )
-        responses = await asyncio.gather(*tasks, return_exceptions=True)
-        return responses
+# @bot.command(name="console")
+# async def console(ctx):
+#     stdout.seek(0)
+#     await ctx.respond(attachment=stdout.read())
 
 if __name__ == '__main__':
+    loop.create_task(bot.start())
     app.run(
-        host='127.0.0.1',
+        host='0.0.0.0',
+        loop=loop,
+#         debug=True,
         port=80
     )
