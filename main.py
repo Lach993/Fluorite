@@ -69,9 +69,9 @@ async def cosmetics_get():
     for name, uuid in uuids.items():
         if await sqlcosmetics.check(uuid):
             wings, tophat = await sqlcosmetics.fetchlatest(uuid)
-            ret[name] = {"wings": bool(wings), "tophat": bool(tophat)}
+            ret[name] = {"wings": wings, "tophat": tophat}
         else:
-            ret[name] = {"wings": False, "tophat": False}
+            ret[name] = {"wings": 0, "tophat": 0}
     return ret
 
 @app.route("/api/cosmetics/put", methods=["GET", "PUT"])
