@@ -14,7 +14,7 @@ import modules.sqlmanager as sqlmanager
 loop = asyncio.get_event_loop()
 asyncio.set_event_loop(loop)
 
-print(countlines("C:\\Users\\dell\\Desktop\\AFluorite\\"))
+print(countlines("."))
 
 bot = lightbulb.Bot(
     token=os.environ.get("Discord"),
