@@ -36,7 +36,7 @@ async def bedwars_get():
     names = request.args.get('names', type=str).split(",")
     uuids = await get_uuids_from_names(names)
     players = await get_players_from_uuids(uuids)
-    print(names, uuids, players)
+#     print(names, uuids, players)
     ret = {}
     for name, uuid in uuids.items():
         ret[name] = players[uuid]
@@ -48,9 +48,9 @@ async def cape_get():
     name = request.args.get('name', type=str)
     uuid = await get_uuid_from_name(name)
     
-    print(uuid)
+#     print(uuid)
     uuid = uuid[0]
-    print(uuid)
+#     print(uuid)
     if await sqlcapes.check(uuid):
         cape = await sqlcapes.fetchlatest(uuid)
     else:
@@ -97,8 +97,9 @@ async def stone_get():
     uuid = await get_uuid_from_name(name)
     return str(await sqlstone.countall(uuid=uuid))
 
-# @bot.command(name="console")
-# async def console(ctx):
+@bot.command(name="fetchlines")
+async def fetchlines(ctx):
+    return await ctx.respond(countlines("."))
 #     stdout.seek(0)
 #     await ctx.respond(attachment=stdout.read())
 
